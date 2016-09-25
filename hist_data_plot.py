@@ -19,7 +19,7 @@ class Ticker():
 		
 		data_response = requests.get(url)
 		if data_response.status_code != 200:
-			logger.warning("No data for %s" % self.name)
+			logger.warning("No data for %s" % self.name)		
 			raise "Failed to load"
 		self.reloadHistoryData(data_response.text)
 	
@@ -34,6 +34,7 @@ class Ticker():
 
 		
 	def reloadHistoryData(self, data):
+		logger.debug("start reloading")
 		dateData = string.split(data,'\n')
 
 		startAdjClose = 0
@@ -175,10 +176,6 @@ def main():
 
 	startDate = datetime.date(args.year_start,args.month_start,args.day_start)
 	finishDate = datetime.date.today()
-
-	logger = logging.getLogger()
-	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-
 	tickerNames = ['IUSB', 'IYK','BND', 'SHY', 'TLT','IAGG','AGG','DIA']
 	if args.all_tickers == 1:
 		tickerNames = getAllPossibleTickerNames()
@@ -190,7 +187,7 @@ def main():
 			tickers.append(currentTicker)
 			if len(tickers) > 10:
 				break
-		except Exception, e:
+		except:
 			pass
 		
 	maxValue = round(getMaxFromTickers(tickers)*100) + 1
@@ -199,5 +196,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-
+	logger = logging.getLogger()
+	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+	logger.debug ("logger inited")
+	main()
