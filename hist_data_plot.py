@@ -1,3 +1,5 @@
+# coding: utf8
+
 import argparse
 import requests
 import string
@@ -6,17 +8,31 @@ import datetime
 import random
 import itertools
 import logging
-
+import sys
 
 class Ticker():
 	def __init__(self, name):
+	
 		self.name=name
 		self.historical_data = {}
+		url = "http://finance.yahoo.com/quote/" +  name
+		logger.debug("Check if %s quote exists by % s", name,url)
+		data_response = requests.get(url)
+		logger.debug("data received")
+		if data_response.status_code != 200:
+			logger.warning("No data for %s" % name)		
+			raise "Failed to  create"
+		logger.debug("code==200")
+		logger.debug(data_response.encoding)
+		html_text = u''
+		html_text = html_text + data_response.text
+		if html_text.find("<title>Requested symbol wasn") != -1:
+			logger.warning("%s quote doesn't exisr" % name)	
 
 	def downloadHistorialData(self, ds,ms,ys,df, mf,yf):
 		url = "http://chart.finance.yahoo.com/table.csv?s=" + self.name +"&a=" + str(ms-1) + "&b=" + str(ds) + "&c="+str(ys) + \
 		"&d=" + str(mf-1) + "&e=" + str(df) + "&f="+str(yf) + "&g=d&ignore=.csv"
-		
+		logger.debug("try get data by: %s", url)
 		data_response = requests.get(url)
 		if data_response.status_code != 200:
 			logger.warning("No data for %s" % self.name)		
@@ -30,11 +46,13 @@ class Ticker():
 		data_values = self.historical_data.values()
 		roi_values = [x["roi"] for x in data_values]
 		roi_values.sort()
+		logger.debug("%s maxRoi %d", self.name,roi_values[-1])
 		return roi_values[-1] 
 
 		
 	def reloadHistoryData(self, data):
-		logger.debug("start reloading")
+		logger.debug("start reloading data for " + self.name)
+		logger.debug("data size %d", len(data))
 		dateData = string.split(data,'\n')
 
 		startAdjClose = 0
@@ -58,6 +76,7 @@ class Ticker():
 			cur_roi = (float(cur_adj_close) - startAdjClose)/startAdjClose
 			dateDict = {cur_date:{"open":dataFiels[1],"high":dataFiels[2],"low":dataFiels[3],"close":dataFiels[4],"vol":dataFiels[5],"adj_close":dataFiels[6],"roi":cur_roi} }
 			self.historical_data.update(dateDict)
+		logger.debug("data successfully loaded")
 		
 			
 
@@ -75,6 +94,7 @@ class Ticker():
 
 class PlotDrawer():
 	def __init__(self,startDate, finishDate,maxValue,width = 1400.0, height = 800):
+		logger.debug("Init plot drawer fot start_date %s, finish date %s, maxValue %d" % (startDate, finishDate, maxValue))
 		self.width = width
 		self.height = height
 		date_count = finishDate - startDate
@@ -173,21 +193,23 @@ def main():
 #	parser.add_argument("--year_finish","-yf",type=int, default=2016, help="finish period year")
 #	parser.add_argument("--period_pace","-p",type=str, default="week", help="time periods on graph")
 	args = parser.parse_args()
-
+ 	
 	startDate = datetime.date(args.year_start,args.month_start,args.day_start)
 	finishDate = datetime.date.today()
 	tickerNames = ['IUSB', 'IYK','BND', 'SHY', 'TLT','IAGG','AGG','DIA']
+	tickers = []
 	if args.all_tickers == 1:
 		tickerNames = getAllPossibleTickerNames()
-		tickers = []
 	for ticker_name in tickerNames:
 		try:
 			currentTicker = Ticker(name=ticker_name)
 			currentTicker.downloadHistorialData(startDate.day,startDate.month,startDate.year,finishDate.day,finishDate.month,finishDate.year)
 			tickers.append(currentTicker)
+			logger.debug ("%s added. %d tickers in total",ticker_name,len(tickers))
 			if len(tickers) > 10:
 				break
 		except:
+			logger.error("Exception for %s ticker", ticker_name)
 			pass
 		
 	maxValue = round(getMaxFromTickers(tickers)*100) + 1
@@ -197,6 +219,6 @@ def main():
 
 if __name__ == "__main__":
 	logger = logging.getLogger()
-	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s')
 	logger.debug ("logger inited")
 	main()
